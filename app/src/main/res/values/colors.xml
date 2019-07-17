@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#008577</color>
+    <color name="colorPrimaryDark">#00574B</color>
+    <color name="colorAccent">#D81B60</color>
+    <color name="busuu_blue">#116EEE</color>
+    <color name="busuu_blue_lite_highlight">#CFEAFC</color>
+    <color name="busuu_blue_lite">#5398F8</color>
+    <color name="busuu_blue_xlite">#d7eefd</color>
+
+</resources>
