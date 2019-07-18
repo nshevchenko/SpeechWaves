@@ -6,7 +6,7 @@ import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
 import android.util.AttributeSet
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import androidx.core.animation.doOnRepeat
 import androidx.core.content.ContextCompat
 import java.util.*
@@ -36,7 +36,7 @@ class SpeechWaves @JvmOverloads constructor(
         }
 
     private var center = PointF(0f, 0f)
-    private var pointsCount: Int = 9
+    private var pointsCount: Int = 10
     private var radius = context.resources.getDimension(R.dimen.radius)
     private var circleRadius = context.resources.getDimension(R.dimen.circle_offset)
     private var tempRadius = 0F
@@ -67,7 +67,7 @@ class SpeechWaves @JvmOverloads constructor(
         .apply {
             color = ContextCompat.getColor(getContext(), R.color.busuu_blue_lite)
             strokeWidth = getContext().resources.getDimension(R.dimen.spacing2)
-            setStyle(Paint.Style.STROKE)
+            setStyle(Paint.Style.FILL)
         }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -79,14 +79,14 @@ class SpeechWaves @JvmOverloads constructor(
         super.onAttachedToWindow()
         recalculateShape()
         waveRadiusOffset = 1f
-        waveAnimator = ValueAnimator.ofFloat(0f, 10f, 0f).apply {
+        waveAnimator = ValueAnimator.ofFloat(0f, 5f, 0f).apply {
             addUpdateListener {
-                                waveRadiusOffset = it.animatedValue as Float
+                waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 2250L
+            duration = 150L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
+            interpolator = LinearInterpolator()
             doOnRepeat {
                 recalculateShape()
             }
@@ -101,7 +101,7 @@ class SpeechWaves @JvmOverloads constructor(
 
     private fun calculateArcHeights() {
         for (i in 0..pointsCount) {
-            deltas.add(random.nextInt(1) + 10F)
+            deltas.add(random.nextInt(10) + 1F)
         }
     }
 
@@ -109,7 +109,7 @@ class SpeechWaves @JvmOverloads constructor(
         points.clear()
         angles.clear()
         for (i in 0..pointsCount) {
-            points.add(random.nextInt(280) + 80)
+            points.add(random.nextInt(360))
         }
         points.sort()
         angles.add(points[0])
@@ -147,7 +147,10 @@ class SpeechWaves @JvmOverloads constructor(
         path.reset()
         canvas.save()
 
-        tempRadius = radius * layerN
+        tempRadius = radius
+        if (layerN > 1) {
+            tempRadius *= (waveRadiusOffset * (layerN - 1) / 10F + 1)
+        }
 
         angle = angles[i]
         delta = (deltas[i])
@@ -171,7 +174,15 @@ class SpeechWaves @JvmOverloads constructor(
         if (i < pointsCount) {
             angleSum += angles[i + 1] / 2
         }
-//        wavePaint.shader = LinearGradient(0F, 0F, 0F, center.y, blueLightColor * layerN, blueColor * layerN, Shader.TileMode.MIRROR)
+        wavePaint.shader = LinearGradient(
+            0F,
+            0F,
+            center.x,
+            center.y,
+            blueLightColor,
+            layerColors[layerN - 1],
+            Shader.TileMode.MIRROR
+        )
         wavePaint.color = layerColors[layerN - 1]
         canvas.drawPath(path, wavePaint)
         canvas.restore()
