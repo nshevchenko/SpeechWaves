@@ -28,12 +28,13 @@ class SpeechWaves @JvmOverloads constructor(
     private val colorsAnimator = ColorsAnimator(context, this)
 
     private val colorsList = mutableListOf(
-        ContextCompat.getColor(context, R.color.blue_layer1_primary),
+        ContextCompat.getColor(context, R.color.busuu_blue),
+        ContextCompat.getColor(context, R.color.busuu_blue),
         ContextCompat.getColor(context, R.color.blue_layer2_primary),
         ContextCompat.getColor(context, R.color.blue_layer3_primary)
     )
 
-    private val blueColor = ContextCompat.getColor(context, R.color.busuu_blue)
+    private val blueColor = ContextCompat.getColor(context, R.color.blue_layer1_primary)
 
     private val random = Random()
     private var waveAnimator: ValueAnimator? = null
@@ -46,7 +47,7 @@ class SpeechWaves @JvmOverloads constructor(
     private val path = Path()
     private var center = PointF(0f, 0f)
     private var radius = context.resources.getDimension(R.dimen.radius)
-    private var smallerRadius = 0F
+    private var futureRadius = 0F
     private var angles = mutableListOf<Int>()
     private var deltas = mutableListOf<Float>()
 
@@ -60,7 +61,7 @@ class SpeechWaves @JvmOverloads constructor(
     private var angleOffset = 0F
     private var averageAngle = 0
     private var dominantIndex = 0
-    private var minHeight = 1F
+    private var minHeight = 1.3F
     private var dominantHeight = 20F
     private var dominantMultiplayer = 0F
 
@@ -123,7 +124,7 @@ class SpeechWaves @JvmOverloads constructor(
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 100L
+            duration = 120L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
@@ -132,7 +133,7 @@ class SpeechWaves @JvmOverloads constructor(
             }
             start()
         }
-        colorsAnimator.animate(darker = true)
+//        colorsAnimator.animate(darker = true)
     }
 
     private fun recalculateShape() {
@@ -144,17 +145,17 @@ class SpeechWaves @JvmOverloads constructor(
         deltas.clear()
 
         dominantIndex = random.nextInt(angles.size - 2) + 1
-        dominantMultiplayer = random.nextInt(3) + 1F
+        dominantMultiplayer = 3F
         dominantHeight = minHeight * voiceAmplitude * 2
 
         if (voiceAmplitude > 1)
-            dominantHeight = Math.min(voiceAmplitude * dominantMultiplayer, 20F)
+            dominantHeight = Math.min(voiceAmplitude * dominantMultiplayer * 2, 20F)
 
         for (i in 0..angles.size) {
             deltas.add(if (voiceAmplitude > 1) minHeight else 0F)
         }
-        deltas[dominantIndex - 1] = (dominantHeight / 4)
-        deltas[dominantIndex + 1] = (dominantHeight / 4)
+        deltas[dominantIndex - 1] = (dominantHeight / 2)
+        deltas[dominantIndex + 1] = (dominantHeight / 2)
         deltas[dominantIndex] = dominantHeight
     }
 
@@ -162,7 +163,7 @@ class SpeechWaves @JvmOverloads constructor(
         angles.clear()
         averageAngle = random.nextInt(20) + 40
         while (angles.sum() < FULL_ROTATION - averageAngle) {
-            angles.add(averageAngle + random.nextInt(20) - 5)
+            angles.add(averageAngle + random.nextInt(40) - 20)
         }
         angles.add(averageAngle)
     }
@@ -170,18 +171,18 @@ class SpeechWaves @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        for (layerN in LAYERS_COUNT downTo 1) {
+        for (layerN in 3 downTo 1) {
             angleSum = 0F
             tempRadius = radius
-            smallerRadius = radius
+            futureRadius = radius
             if (layerN > 1) {
-                tempRadius *= (layerN - 1) / 3F + 1
-                smallerRadius *= (layerN - 2) / 3F + 1
-            }
-            if (layerN != 1) {
-                drawBlueCircle(canvas, colorsList[layerN - 1], tempRadius)
+                tempRadius *= (layerN - 1) / 5F + 1
+                futureRadius *= (layerN - 2) / 5F + 1
             }
             drawOneLayerOfArc(layerN, canvas)
+            if (layerN != 1) {
+                drawBlueCircle(canvas, tempRadius, layerN)
+            }
         }
         drawCircle(canvas)
     }
@@ -203,7 +204,7 @@ class SpeechWaves @JvmOverloads constructor(
 
             oval.set(
                 center.x + angleOffset,
-                center.y - tempRadius - (delta * waveRadiusOffset),
+                center.y - tempRadius - (delta * waveRadiusOffset) * (layerN) / 2F,
                 center.x - angleOffset,
                 center.y + delta
             )
@@ -214,9 +215,10 @@ class SpeechWaves @JvmOverloads constructor(
             if (i < angles.size - 1) {
                 angleSum += angles[i + 1] / 2
             }
-            wavePaint.color = colorsList[layerN - 1]
+            wavePaint.color = colorsList[layerN]
             canvas.drawPath(path, wavePaint)
             if (layerN == 1) {
+                waveShader.shader = shader
                 canvas.drawPath(path, waveStrokePaint)
                 canvas.drawPath(path, waveShader)
             }
@@ -226,6 +228,7 @@ class SpeechWaves @JvmOverloads constructor(
 
     private fun drawCircle(canvas: Canvas) {
         circlePaint.color = ContextCompat.getColor(context, android.R.color.white)
+        circlePaint.shader = null
         canvas.drawCircle(
             center.x,
             center.y,
@@ -236,18 +239,17 @@ class SpeechWaves @JvmOverloads constructor(
 
     private fun drawBlueCircle(
         canvas: Canvas,
-        color: Int,
-        layerRadius: Float
+        layerRadius: Float,
+        layerN: Int
     ) {
-        circlePaint.color = color
-//        circlePaint.shader = RadialGradient(
-//            center.x,
-//            center.y,
-//            layerRadius,
-//            intArrayOf(Color.BLACK, Color.RED),
-//            floatArrayOf(1 -  (layerRadius / smallerRadius), 1F),
-//            TileMode.CLAMP
-//        )
+        circlePaint.shader = RadialGradient(
+            center.x,
+            center.y,
+            layerRadius,
+            intArrayOf(colorsList[layerN], colorsList[layerN - 1], colorsList[layerN]),
+            floatArrayOf(0F, futureRadius / layerRadius, 1F),
+            TileMode.CLAMP
+        )
 
         canvas.drawCircle(
             center.x,
