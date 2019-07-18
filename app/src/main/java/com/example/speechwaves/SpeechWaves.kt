@@ -4,12 +4,14 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
 import android.graphics.Paint.ANTI_ALIAS_FLAG
+import android.graphics.Shader.TileMode
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.core.animation.doOnRepeat
 import androidx.core.content.ContextCompat
 import java.util.*
+
 
 private const val LAYERS_COUNT = 3
 private const val FULL_ROTATION = 360
@@ -18,20 +20,20 @@ class SpeechWaves @JvmOverloads constructor(
     context: Context,
     attr: AttributeSet? = null,
     style: Int = 0
-) : View(context, attr, style), GetAmplitudeCallback {
+) : View(context, attr, style), GetAmplitudeCallback, ColorsUpdateCallback {
 
     private var voiceAmplitude = 0F
 
     private val audioMeter: AudioMeter = AudioMeter()
+    private val colorsAnimator = ColorsAnimator(context, this)
 
-    private val layerColors = listOf(
-        ContextCompat.getColor(context, R.color.blue_layer1_secondary),
-        ContextCompat.getColor(context, R.color.blue_layer2_secondary),
-        ContextCompat.getColor(context, R.color.blue_layer3_secondary)
+    private val colorsList = mutableListOf(
+        ContextCompat.getColor(context, R.color.blue_layer1_primary),
+        ContextCompat.getColor(context, R.color.blue_layer2_primary),
+        ContextCompat.getColor(context, R.color.blue_layer3_primary)
     )
 
     private val blueColor = ContextCompat.getColor(context, R.color.busuu_blue)
-    private val blueLightColor = ContextCompat.getColor(context, R.color.busuu_blue_xlite)
 
     private val random = Random()
     private var waveAnimator: ValueAnimator? = null
@@ -44,14 +46,12 @@ class SpeechWaves @JvmOverloads constructor(
     private val path = Path()
     private var center = PointF(0f, 0f)
     private var radius = context.resources.getDimension(R.dimen.radius)
-    private var circleRadius = context.resources.getDimension(R.dimen.circle_offset)
-    private var tempRadius = 0F
-    private var angleSum = 0F
-
-    private val points = mutableListOf<Int>()
+    private var smallerRadius = 0F
     private var angles = mutableListOf<Int>()
     private var deltas = mutableListOf<Float>()
 
+    private var tempRadius = 0F
+    private var angleSum = 0F
     private var angle = 0
     private var angleRad = 0.0
     private var halfAngle = 0.0
@@ -64,10 +64,19 @@ class SpeechWaves @JvmOverloads constructor(
     private var dominantHeight = 20F
     private var dominantMultiplayer = 0F
 
+    private var bm = BitmapFactory.decodeResource(resources, R.drawable.stripes)
+    private var shader: BitmapShader = BitmapShader(bm, Shader.TileMode.REPEAT, Shader.TileMode.CLAMP)
+
     private val wavePaint: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
             strokeWidth = getContext().resources.getDimension(R.dimen.spacing2)
             setStyle(Paint.Style.FILL)
+        }
+
+    private val waveShader: Paint = Paint(ANTI_ALIAS_FLAG)
+        .apply {
+            shader = this@SpeechWaves.shader
+            setStyle(Paint.Style.STROKE)
         }
 
     private val waveStrokePaint: Paint = Paint(ANTI_ALIAS_FLAG)
@@ -82,6 +91,18 @@ class SpeechWaves @JvmOverloads constructor(
             strokeWidth = getContext().resources.getDimension(R.dimen.spacing2)
             setStyle(Paint.Style.FILL)
         }
+
+    override fun onColors0Update(color: Int) {
+        colorsList[0] = color
+    }
+
+    override fun onColors1Update(color: Int) {
+        colorsList[1] = color
+    }
+
+    override fun onColors2Update(color: Int) {
+        colorsList[2] = color
+    }
 
     override fun onAmplitudeUpdate(amplitude: Int) {
         this.voiceAmplitude = amplitude / 1000F
@@ -111,6 +132,7 @@ class SpeechWaves @JvmOverloads constructor(
             }
             start()
         }
+        colorsAnimator.animate(darker = true)
     }
 
     private fun recalculateShape() {
@@ -126,7 +148,7 @@ class SpeechWaves @JvmOverloads constructor(
         dominantHeight = minHeight * voiceAmplitude * 2
 
         if (voiceAmplitude > 1)
-            dominantHeight = Math.min(voiceAmplitude * dominantMultiplayer, 25F)
+            dominantHeight = Math.min(voiceAmplitude * dominantMultiplayer, 20F)
 
         for (i in 0..angles.size) {
             deltas.add(if (voiceAmplitude > 1) minHeight else 0F)
@@ -151,14 +173,15 @@ class SpeechWaves @JvmOverloads constructor(
         for (layerN in LAYERS_COUNT downTo 1) {
             angleSum = 0F
             tempRadius = radius
+            smallerRadius = radius
             if (layerN > 1) {
                 tempRadius *= (layerN - 1) / 3F + 1
+                smallerRadius *= (layerN - 2) / 3F + 1
             }
             if (layerN != 1) {
-                drawBlueCircle(canvas, layerColors[layerN - 1], tempRadius)
+                drawBlueCircle(canvas, colorsList[layerN - 1], tempRadius)
             }
             drawOneLayerOfArc(layerN, canvas)
-
         }
         drawCircle(canvas)
     }
@@ -191,10 +214,11 @@ class SpeechWaves @JvmOverloads constructor(
             if (i < angles.size - 1) {
                 angleSum += angles[i + 1] / 2
             }
-            wavePaint.color = layerColors[layerN - 1]
+            wavePaint.color = colorsList[layerN - 1]
             canvas.drawPath(path, wavePaint)
             if (layerN == 1) {
                 canvas.drawPath(path, waveStrokePaint)
+                canvas.drawPath(path, waveShader)
             }
             canvas.restore()
         }
@@ -216,6 +240,15 @@ class SpeechWaves @JvmOverloads constructor(
         layerRadius: Float
     ) {
         circlePaint.color = color
+//        circlePaint.shader = RadialGradient(
+//            center.x,
+//            center.y,
+//            layerRadius,
+//            intArrayOf(Color.BLACK, Color.RED),
+//            floatArrayOf(1 -  (layerRadius / smallerRadius), 1F),
+//            TileMode.CLAMP
+//        )
+
         canvas.drawCircle(
             center.x,
             center.y,
