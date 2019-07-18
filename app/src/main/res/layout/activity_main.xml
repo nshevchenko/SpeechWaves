@@ -8,7 +8,7 @@
         tools:context=".MainActivity">
 
     <com.example.speechwaves.SpeechWaves
-            android:id="@+id/asdf"
+            android:id="@+id/speech_waves"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"

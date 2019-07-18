@@ -11,12 +11,18 @@ import androidx.core.animation.doOnRepeat
 import androidx.core.content.ContextCompat
 import java.util.*
 
+private const val LAYERS_COUNT = 3
+private const val FULL_ROTATION = 360
 
 class SpeechWaves @JvmOverloads constructor(
     context: Context,
     attr: AttributeSet? = null,
     style: Int = 0
-) : View(context, attr, style) {
+) : View(context, attr, style), GetAmplitudeCallback {
+
+    private var voiceAmplitude = 0F
+
+    private val audioMeter: AudioMeter = AudioMeter()
 
     private val layerColors = listOf(
         ContextCompat.getColor(context, R.color.busuu_blue),
@@ -36,7 +42,6 @@ class SpeechWaves @JvmOverloads constructor(
         }
 
     private var center = PointF(0f, 0f)
-    private var pointsCount: Int = 10
     private var radius = context.resources.getDimension(R.dimen.radius)
     private var circleRadius = context.resources.getDimension(R.dimen.circle_offset)
     private var tempRadius = 0F
@@ -70,9 +75,16 @@ class SpeechWaves @JvmOverloads constructor(
             setStyle(Paint.Style.FILL)
         }
 
+    override fun onAmplitudeUpdate(amplitude: Int) {
+        System.out.println(amplitude / 2000F)
+        this.voiceAmplitude = Math.min(amplitude / 1000F, 20F)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        center.set(w / 2f, h / 2f)
+        if (center.x == 0F) {
+            center.set(w / 2f, h / 2f)
+        }
     }
 
     override fun onAttachedToWindow() {
@@ -83,7 +95,7 @@ class SpeechWaves @JvmOverloads constructor(
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 150L
+            duration = 100L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
@@ -95,29 +107,41 @@ class SpeechWaves @JvmOverloads constructor(
     }
 
     private fun recalculateShape() {
-        calculateArcHeights()
         calculateAngles()
+        calculateArcHeights()
     }
+
+    private var dominantIndex = 0
+    private var minHeight = 2F
+    private var dominantHeight = 20F
+    private var subDominantLeftIndex = 0
+    private var subDominantRightIndex = 0
 
     private fun calculateArcHeights() {
-        for (i in 0..pointsCount) {
-            deltas.add(random.nextInt(10) + 1F)
+        deltas.clear()
+
+        dominantIndex = random.nextInt(angles.size - 2) + 1
+        dominantHeight = minHeight * voiceAmplitude
+
+        for (i in 0..angles.size) {
+            deltas.add(minHeight)
         }
+        subDominantLeftIndex = dominantIndex - 1
+        subDominantRightIndex = dominantIndex + 1
+
+        deltas[subDominantLeftIndex] = (dominantHeight / 4)
+        deltas[subDominantRightIndex] = (dominantHeight / 4)
+        deltas[dominantIndex] = dominantHeight
     }
 
+    private var averageAngle = 0
     private fun calculateAngles() {
-        points.clear()
         angles.clear()
-        for (i in 0..pointsCount) {
-            points.add(random.nextInt(360))
+        averageAngle = random.nextInt(20) + 30
+        while (angles.sum() < FULL_ROTATION - averageAngle) {
+            angles.add(averageAngle + random.nextInt(20) - 5)
         }
-        points.sort()
-        angles.add(points[0])
-        for (i in 1 until pointsCount) {
-            angles.add(points[i] - points[i - 1])
-        }
-        angles.add(360 - angles.sum())
-        angles.shuffle()
+        angles.add(averageAngle)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -130,9 +154,9 @@ class SpeechWaves @JvmOverloads constructor(
     private fun drawAllArcs(canvas: Canvas) {
         val path = Path()
         angleSum = 0F
-        for (layerN in 3 downTo 1) {
+        for (layerN in LAYERS_COUNT downTo 1) {
             angleSum = 0F
-            for (i in 0..pointsCount) {
+            for (i in 0 until angles.size) {
                 drawOneLayerOfArc(layerN, path, canvas, i)
             }
         }
@@ -149,7 +173,7 @@ class SpeechWaves @JvmOverloads constructor(
 
         tempRadius = radius
         if (layerN > 1) {
-            tempRadius *= (waveRadiusOffset * (layerN - 1) / 10F + 1)
+            tempRadius *= waveRadiusOffset * (deltas[i] / 20) * (layerN - 1) / 10F + 1
         }
 
         angle = angles[i]
@@ -171,18 +195,9 @@ class SpeechWaves @JvmOverloads constructor(
         path.addOval(oval, Path.Direction.CW)
 
         angleSum += angle / 2
-        if (i < pointsCount) {
+        if (i < angles.size - 1) {
             angleSum += angles[i + 1] / 2
         }
-        wavePaint.shader = LinearGradient(
-            0F,
-            0F,
-            center.x,
-            center.y,
-            blueLightColor,
-            layerColors[layerN - 1],
-            Shader.TileMode.MIRROR
-        )
         wavePaint.color = layerColors[layerN - 1]
         canvas.drawPath(path, wavePaint)
         canvas.restore()
@@ -206,5 +221,9 @@ class SpeechWaves @JvmOverloads constructor(
             radius,
             circlePaint
         )
+    }
+
+    fun start() {
+        audioMeter.start(this)
     }
 }
