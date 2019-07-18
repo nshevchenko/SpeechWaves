@@ -25,9 +25,9 @@ class SpeechWaves @JvmOverloads constructor(
     private val audioMeter: AudioMeter = AudioMeter()
 
     private val layerColors = listOf(
-        ContextCompat.getColor(context, R.color.busuu_blue),
         ContextCompat.getColor(context, R.color.busuu_blue_lite),
-        ContextCompat.getColor(context, R.color.busuu_blue_xlite)
+        ContextCompat.getColor(context, R.color.busuu_blue_xlite),
+        ContextCompat.getColor(context, R.color.busuu_blue_xxlite)
     )
 
     private val blueColor = ContextCompat.getColor(context, R.color.busuu_blue)
@@ -61,6 +61,10 @@ class SpeechWaves @JvmOverloads constructor(
     private var right = 0.0
     private var bottom = 0F
     private var top = 0F
+    private var averageAngle = 0
+    private var dominantIndex = 0
+    private var minHeight = 1F
+    private var dominantHeight = 20F
 
     private val wavePaint: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
@@ -68,15 +72,20 @@ class SpeechWaves @JvmOverloads constructor(
             setStyle(Paint.Style.FILL)
         }
 
+    private val waveStrokePaint: Paint = Paint(ANTI_ALIAS_FLAG)
+        .apply {
+            color = blueColor
+            strokeWidth = getContext().resources.getDimension(R.dimen.spacing1)
+            setStyle(Paint.Style.STROKE)
+        }
+
     private val circlePaint: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
-            color = ContextCompat.getColor(getContext(), R.color.busuu_blue_lite)
             strokeWidth = getContext().resources.getDimension(R.dimen.spacing2)
             setStyle(Paint.Style.FILL)
         }
 
     override fun onAmplitudeUpdate(amplitude: Int) {
-        System.out.println(amplitude / 2000F)
         this.voiceAmplitude = Math.min(amplitude / 1000F, 20F)
     }
 
@@ -91,7 +100,7 @@ class SpeechWaves @JvmOverloads constructor(
         super.onAttachedToWindow()
         recalculateShape()
         waveRadiusOffset = 1f
-        waveAnimator = ValueAnimator.ofFloat(0f, 5f, 0f).apply {
+        waveAnimator = ValueAnimator.ofFloat(0f, 10f, 0f).apply {
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
@@ -111,33 +120,24 @@ class SpeechWaves @JvmOverloads constructor(
         calculateArcHeights()
     }
 
-    private var dominantIndex = 0
-    private var minHeight = 2F
-    private var dominantHeight = 20F
-    private var subDominantLeftIndex = 0
-    private var subDominantRightIndex = 0
-
     private fun calculateArcHeights() {
         deltas.clear()
 
         dominantIndex = random.nextInt(angles.size - 2) + 1
-        dominantHeight = minHeight * voiceAmplitude
+        dominantHeight = minHeight * voiceAmplitude * 2
 
         for (i in 0..angles.size) {
-            deltas.add(minHeight)
+            deltas.add(if (voiceAmplitude > 1) minHeight else 0F)
         }
-        subDominantLeftIndex = dominantIndex - 1
-        subDominantRightIndex = dominantIndex + 1
 
-        deltas[subDominantLeftIndex] = (dominantHeight / 4)
-        deltas[subDominantRightIndex] = (dominantHeight / 4)
+        deltas[dominantIndex - 1] = (dominantHeight / 4)
+        deltas[dominantIndex + 1] = (dominantHeight / 4)
         deltas[dominantIndex] = dominantHeight
     }
 
-    private var averageAngle = 0
     private fun calculateAngles() {
         angles.clear()
-        averageAngle = random.nextInt(20) + 30
+        averageAngle = random.nextInt(20) + 40
         while (angles.sum() < FULL_ROTATION - averageAngle) {
             angles.add(averageAngle + random.nextInt(20) - 5)
         }
@@ -146,61 +146,64 @@ class SpeechWaves @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        drawAllArcs(canvas)
-        drawBlueCircle(canvas)
-        drawCircle(canvas)
-    }
 
-    private fun drawAllArcs(canvas: Canvas) {
-        val path = Path()
-        angleSum = 0F
         for (layerN in LAYERS_COUNT downTo 1) {
             angleSum = 0F
-            for (i in 0 until angles.size) {
-                drawOneLayerOfArc(layerN, path, canvas, i)
+            val path = Path()
+            tempRadius = radius
+            if (layerN > 1) {
+                tempRadius *= (layerN - 1) / 3F + 1
             }
+            if (layerN != 1) {
+                drawBlueCircle(canvas, layerColors[layerN - 1], tempRadius)
+            }
+            drawOneLayerOfArc(layerN, path, canvas, tempRadius)
+
         }
+        drawCircle(canvas)
     }
 
     private fun drawOneLayerOfArc(
         layerN: Int,
         path: Path,
         canvas: Canvas,
-        i: Int
+        layerRadius: Float
     ) {
-        path.reset()
-        canvas.save()
+        for (i in 0 until angles.size) {
+            path.reset()
+            canvas.save()
 
-        tempRadius = radius
-        if (layerN > 1) {
-            tempRadius *= waveRadiusOffset * (deltas[i] / 20) * (layerN - 1) / 10F + 1
+            angle = angles[i]
+            delta = (deltas[i])
+
+            angleRad = angle * Math.PI / 180F
+            halfAngle = angleRad / 2
+
+            angleOffset = layerRadius * Math.sin(-halfAngle)
+            if (layerN > 1) {
+//                angleOffset *= layerN
+            }
+            left = center.x + angleOffset
+            right = center.x - angleOffset
+            bottom = center.y + delta
+            top = center.y - layerRadius - (delta * waveRadiusOffset)
+
+            canvas.rotate(angleSum, center.x, center.y)
+
+            oval.set(left.toFloat(), top, right.toFloat(), bottom)
+            path.addOval(oval, Path.Direction.CW)
+
+            angleSum += angle / 2
+            if (i < angles.size - 1) {
+                angleSum += angles[i + 1] / 2
+            }
+            wavePaint.color = layerColors[layerN - 1]
+            canvas.drawPath(path, wavePaint)
+            if (layerN == 1) {
+                canvas.drawPath(path, waveStrokePaint)
+            }
+            canvas.restore()
         }
-
-        angle = angles[i]
-        delta = (deltas[i])
-
-        angleRad = angle * Math.PI / 180F
-        halfAngle = angleRad / 2
-
-        angleOffset = tempRadius * Math.sin(-halfAngle)
-
-        left = center.x + angleOffset
-        right = center.x - angleOffset
-        bottom = center.y + delta
-        top = center.y - tempRadius - (delta * waveRadiusOffset)
-
-        canvas.rotate(angleSum, center.x, center.y)
-
-        oval.set(left.toFloat(), top, right.toFloat(), bottom)
-        path.addOval(oval, Path.Direction.CW)
-
-        angleSum += angle / 2
-        if (i < angles.size - 1) {
-            angleSum += angles[i + 1] / 2
-        }
-        wavePaint.color = layerColors[layerN - 1]
-        canvas.drawPath(path, wavePaint)
-        canvas.restore()
     }
 
     private fun drawCircle(canvas: Canvas) {
@@ -208,17 +211,21 @@ class SpeechWaves @JvmOverloads constructor(
         canvas.drawCircle(
             center.x,
             center.y,
-            radius - circleRadius,
+            radius + 1,
             circlePaint
         )
     }
 
-    private fun drawBlueCircle(canvas: Canvas) {
-        circlePaint.color = blueColor
+    private fun drawBlueCircle(
+        canvas: Canvas,
+        color: Int,
+        layerRadius: Float
+    ) {
+        circlePaint.color = color
         canvas.drawCircle(
             center.x,
             center.y,
-            radius,
+            layerRadius,
             circlePaint
         )
     }
