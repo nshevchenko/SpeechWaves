@@ -25,9 +25,9 @@ class SpeechWaves @JvmOverloads constructor(
     private val audioMeter: AudioMeter = AudioMeter()
 
     private val layerColors = listOf(
-        ContextCompat.getColor(context, R.color.busuu_blue_lite),
-        ContextCompat.getColor(context, R.color.busuu_blue_xlite),
-        ContextCompat.getColor(context, R.color.busuu_blue_xxlite)
+        ContextCompat.getColor(context, R.color.blue_layer1_secondary),
+        ContextCompat.getColor(context, R.color.blue_layer2_secondary),
+        ContextCompat.getColor(context, R.color.blue_layer3_secondary)
     )
 
     private val blueColor = ContextCompat.getColor(context, R.color.busuu_blue)
@@ -41,6 +41,7 @@ class SpeechWaves @JvmOverloads constructor(
             postInvalidateOnAnimation()
         }
 
+    private val path = Path()
     private var center = PointF(0f, 0f)
     private var radius = context.resources.getDimension(R.dimen.radius)
     private var circleRadius = context.resources.getDimension(R.dimen.circle_offset)
@@ -56,15 +57,12 @@ class SpeechWaves @JvmOverloads constructor(
     private var halfAngle = 0.0
     private var oval = RectF()
     private var delta = 0F
-    private var angleOffset = 0.0
-    private var left = 0.0
-    private var right = 0.0
-    private var bottom = 0F
-    private var top = 0F
+    private var angleOffset = 0F
     private var averageAngle = 0
     private var dominantIndex = 0
     private var minHeight = 1F
     private var dominantHeight = 20F
+    private var dominantMultiplayer = 0F
 
     private val wavePaint: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
@@ -86,7 +84,7 @@ class SpeechWaves @JvmOverloads constructor(
         }
 
     override fun onAmplitudeUpdate(amplitude: Int) {
-        this.voiceAmplitude = Math.min(amplitude / 1000F, 20F)
+        this.voiceAmplitude = amplitude / 1000F
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -124,12 +122,15 @@ class SpeechWaves @JvmOverloads constructor(
         deltas.clear()
 
         dominantIndex = random.nextInt(angles.size - 2) + 1
+        dominantMultiplayer = random.nextInt(3) + 1F
         dominantHeight = minHeight * voiceAmplitude * 2
+
+        if (voiceAmplitude > 1)
+            dominantHeight = Math.min(voiceAmplitude * dominantMultiplayer, 25F)
 
         for (i in 0..angles.size) {
             deltas.add(if (voiceAmplitude > 1) minHeight else 0F)
         }
-
         deltas[dominantIndex - 1] = (dominantHeight / 4)
         deltas[dominantIndex + 1] = (dominantHeight / 4)
         deltas[dominantIndex] = dominantHeight
@@ -149,7 +150,6 @@ class SpeechWaves @JvmOverloads constructor(
 
         for (layerN in LAYERS_COUNT downTo 1) {
             angleSum = 0F
-            val path = Path()
             tempRadius = radius
             if (layerN > 1) {
                 tempRadius *= (layerN - 1) / 3F + 1
@@ -157,7 +157,7 @@ class SpeechWaves @JvmOverloads constructor(
             if (layerN != 1) {
                 drawBlueCircle(canvas, layerColors[layerN - 1], tempRadius)
             }
-            drawOneLayerOfArc(layerN, path, canvas, tempRadius)
+            drawOneLayerOfArc(layerN, canvas)
 
         }
         drawCircle(canvas)
@@ -165,9 +165,7 @@ class SpeechWaves @JvmOverloads constructor(
 
     private fun drawOneLayerOfArc(
         layerN: Int,
-        path: Path,
-        canvas: Canvas,
-        layerRadius: Float
+        canvas: Canvas
     ) {
         for (i in 0 until angles.size) {
             path.reset()
@@ -178,19 +176,15 @@ class SpeechWaves @JvmOverloads constructor(
 
             angleRad = angle * Math.PI / 180F
             halfAngle = angleRad / 2
+            angleOffset = tempRadius * Math.sin(-halfAngle).toFloat()
 
-            angleOffset = layerRadius * Math.sin(-halfAngle)
-            if (layerN > 1) {
-//                angleOffset *= layerN
-            }
-            left = center.x + angleOffset
-            right = center.x - angleOffset
-            bottom = center.y + delta
-            top = center.y - layerRadius - (delta * waveRadiusOffset)
-
+            oval.set(
+                center.x + angleOffset,
+                center.y - tempRadius - (delta * waveRadiusOffset),
+                center.x - angleOffset,
+                center.y + delta
+            )
             canvas.rotate(angleSum, center.x, center.y)
-
-            oval.set(left.toFloat(), top, right.toFloat(), bottom)
             path.addOval(oval, Path.Direction.CW)
 
             angleSum += angle / 2
