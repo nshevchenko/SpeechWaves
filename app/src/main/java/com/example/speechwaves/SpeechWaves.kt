@@ -148,7 +148,7 @@ class SpeechWaves @JvmOverloads constructor(
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 120L
+            duration = 160L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
@@ -186,7 +186,7 @@ class SpeechWaves @JvmOverloads constructor(
         angles.clear()
         averageAngle = random.nextInt(20) + 40
         while (angles.sum() < FULL_ROTATION - averageAngle) {
-            angles.add(averageAngle + random.nextInt(40) - 20)
+            angles.add(averageAngle + random.nextInt(30) - 10)
         }
         angles.add(averageAngle)
     }
