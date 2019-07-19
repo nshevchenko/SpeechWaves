@@ -15,4 +15,14 @@
             android:layout_width="match_parent"
             android:layout_height="400dp"/>
 
+    <View
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/button"
+            app:layout_constraintTop_toTopOf="@id/speech_waves"
+            app:layout_constraintBottom_toBottomOf="@id/speech_waves"
+            app:layout_constraintStart_toStartOf="@id/speech_waves"
+            app:layout_constraintEnd_toEndOf="@id/speech_waves"
+    />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

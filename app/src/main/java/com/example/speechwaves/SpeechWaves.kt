@@ -27,8 +27,7 @@ class SpeechWaves @JvmOverloads constructor(
     private val audioMeter: AudioMeter = AudioMeter()
     private val colorsAnimator = ColorsAnimator(context, this)
 
-    private val colorsList = mutableListOf(
-        ContextCompat.getColor(context, R.color.busuu_blue),
+    private var colorsList = mutableListOf(
         ContextCompat.getColor(context, R.color.busuu_blue),
         ContextCompat.getColor(context, R.color.blue_layer2_primary),
         ContextCompat.getColor(context, R.color.blue_layer3_primary)
@@ -64,7 +63,8 @@ class SpeechWaves @JvmOverloads constructor(
     private var minHeight = 1.3F
     private var dominantHeight = 20F
     private var dominantMultiplayer = 0F
-
+    private var colorsAnimating = false
+    private var colorsGettingDarker = false
     private var bm = BitmapFactory.decodeResource(resources, R.drawable.stripes)
     private var shader: BitmapShader = BitmapShader(bm, Shader.TileMode.REPEAT, Shader.TileMode.CLAMP)
 
@@ -77,7 +77,7 @@ class SpeechWaves @JvmOverloads constructor(
     private val waveShader: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
             shader = this@SpeechWaves.shader
-            setStyle(Paint.Style.STROKE)
+            setStyle(Paint.Style.FILL)
         }
 
     private val waveStrokePaint: Paint = Paint(ANTI_ALIAS_FLAG)
@@ -107,6 +107,7 @@ class SpeechWaves @JvmOverloads constructor(
 
     override fun onAmplitudeUpdate(amplitude: Int) {
         this.voiceAmplitude = amplitude / 1000F
+        animateColors(voiceAmplitude > 3)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -119,7 +120,30 @@ class SpeechWaves @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         recalculateShape()
-        waveRadiusOffset = 1f
+    }
+
+    fun start() {
+        audioMeter.start(this)
+        colorsList = colorsAnimator.layerColors.toMutableList()
+        startWaveRadiusAnimation()
+    }
+
+    fun stop() {
+        waveAnimator?.cancel()
+        waveAnimator = null
+    }
+
+    private fun animateColors(darker: Boolean) {
+        if (!colorsAnimating) {
+            if (darker != colorsGettingDarker) {
+                colorsAnimating = true
+                colorsGettingDarker = darker
+                colorsAnimator.animate(darker, colorsList) { colorsAnimating = false }
+            }
+        }
+    }
+
+    private fun startWaveRadiusAnimation() {
         waveAnimator = ValueAnimator.ofFloat(0f, 10f, 0f).apply {
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
@@ -133,7 +157,6 @@ class SpeechWaves @JvmOverloads constructor(
             }
             start()
         }
-//        colorsAnimator.animate(darker = true)
     }
 
     private fun recalculateShape() {
@@ -215,10 +238,9 @@ class SpeechWaves @JvmOverloads constructor(
             if (i < angles.size - 1) {
                 angleSum += angles[i + 1] / 2
             }
-            wavePaint.color = colorsList[layerN]
+            wavePaint.color = colorsList[layerN - 1]
             canvas.drawPath(path, wavePaint)
             if (layerN == 1) {
-                waveShader.shader = shader
                 canvas.drawPath(path, waveStrokePaint)
                 canvas.drawPath(path, waveShader)
             }
@@ -246,7 +268,7 @@ class SpeechWaves @JvmOverloads constructor(
             center.x,
             center.y,
             layerRadius,
-            intArrayOf(colorsList[layerN], colorsList[layerN - 1], colorsList[layerN]),
+            intArrayOf(colorsList[layerN - 1], colorsList[layerN - 2], colorsList[layerN - 1]),
             floatArrayOf(0F, futureRadius / layerRadius, 1F),
             TileMode.CLAMP
         )
@@ -257,9 +279,5 @@ class SpeechWaves @JvmOverloads constructor(
             layerRadius,
             circlePaint
         )
-    }
-
-    fun start() {
-        audioMeter.start(this)
     }
 }
