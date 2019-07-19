@@ -65,18 +65,10 @@ class SpeechWaves @JvmOverloads constructor(
     private var dominantMultiplayer = 0F
     private var colorsAnimating = false
     private var colorsGettingDarker = false
-    private var bm = BitmapFactory.decodeResource(resources, R.drawable.stripes)
-    private var shader: BitmapShader = BitmapShader(bm, Shader.TileMode.REPEAT, Shader.TileMode.CLAMP)
 
     private val wavePaint: Paint = Paint(ANTI_ALIAS_FLAG)
         .apply {
             strokeWidth = getContext().resources.getDimension(R.dimen.spacing2)
-            setStyle(Paint.Style.FILL)
-        }
-
-    private val waveShader: Paint = Paint(ANTI_ALIAS_FLAG)
-        .apply {
-            shader = this@SpeechWaves.shader
             setStyle(Paint.Style.FILL)
         }
 
@@ -107,7 +99,7 @@ class SpeechWaves @JvmOverloads constructor(
 
     override fun onAmplitudeUpdate(amplitude: Int) {
         this.voiceAmplitude = amplitude / 1000F
-        animateColors(voiceAmplitude > 3)
+        animateColors(voiceAmplitude > 1.5F)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -148,7 +140,7 @@ class SpeechWaves @JvmOverloads constructor(
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 300L
+            duration = 270L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
@@ -227,7 +219,7 @@ class SpeechWaves @JvmOverloads constructor(
 
             oval.set(
                 center.x + angleOffset,
-                center.y - tempRadius - (delta * waveRadiusOffset) * (layerN) / 2F,
+                center.y - tempRadius - (delta * waveRadiusOffset) * (layerN) / 3F,
                 center.x - angleOffset,
                 center.y + delta
             )
@@ -242,7 +234,6 @@ class SpeechWaves @JvmOverloads constructor(
             canvas.drawPath(path, wavePaint)
             if (layerN == 1) {
                 canvas.drawPath(path, waveStrokePaint)
-                canvas.drawPath(path, waveShader)
             }
             canvas.restore()
         }
