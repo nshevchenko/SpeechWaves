@@ -73,7 +73,7 @@ class ColorsAnimator(
 
     private fun ValueAnimator.customiseAnimator() {
         setEvaluator(ArgbEvaluator())
-        duration = 100L
+        duration = 300L
         start()
     }
 }

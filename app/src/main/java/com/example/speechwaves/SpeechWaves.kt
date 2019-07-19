@@ -148,7 +148,7 @@ class SpeechWaves @JvmOverloads constructor(
             addUpdateListener {
                 waveRadiusOffset = it.animatedValue as Float
             }
-            duration = 160L
+            duration = 300L
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
