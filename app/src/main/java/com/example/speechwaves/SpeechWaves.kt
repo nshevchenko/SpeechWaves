@@ -11,6 +11,7 @@ import android.view.animation.LinearInterpolator
 import androidx.core.animation.doOnRepeat
 import androidx.core.content.ContextCompat
 import java.util.*
+import kotlin.math.sin
 
 
 private const val LAYERS_COUNT = 3
@@ -51,7 +52,7 @@ class SpeechWaves @JvmOverloads constructor(
     private var deltas = mutableListOf<Float>()
 
     private var tempRadius = 0F
-    private var angleSum = 0F
+    private var rotationAngle = 0F
     private var angle = 0
     private var angleRad = 0.0
     private var halfAngle = 0.0
@@ -186,8 +187,9 @@ class SpeechWaves @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+
         for (layerN in 3 downTo 1) {
-            angleSum = 0F
+            canvas.save()
             tempRadius = radius
             futureRadius = radius
             if (layerN > 1) {
@@ -198,6 +200,7 @@ class SpeechWaves @JvmOverloads constructor(
             if (layerN != 1) {
                 drawBlueCircle(canvas, tempRadius, layerN)
             }
+            canvas.restore()
         }
         drawCircle(canvas)
     }
@@ -208,14 +211,13 @@ class SpeechWaves @JvmOverloads constructor(
     ) {
         for (i in 0 until angles.size) {
             path.reset()
-            canvas.save()
 
             angle = angles[i]
             delta = (deltas[i])
 
             angleRad = angle * Math.PI / 180F
             halfAngle = angleRad / 2
-            angleOffset = tempRadius * Math.sin(-halfAngle).toFloat()
+            angleOffset = tempRadius * sin(-halfAngle).toFloat()
 
             oval.set(
                 center.x + angleOffset,
@@ -223,19 +225,18 @@ class SpeechWaves @JvmOverloads constructor(
                 center.x - angleOffset,
                 center.y + delta
             )
-            canvas.rotate(angleSum, center.x, center.y)
+            rotationAngle = angle / 2F
+            if (i < angles.size - 1) {
+                rotationAngle += angles[i + 1] / 2
+            }
+            canvas.rotate(rotationAngle, center.x, center.y)
             path.addOval(oval, Path.Direction.CW)
 
-            angleSum += angle / 2
-            if (i < angles.size - 1) {
-                angleSum += angles[i + 1] / 2
-            }
             wavePaint.color = colorsList[layerN - 1]
             canvas.drawPath(path, wavePaint)
             if (layerN == 1) {
                 canvas.drawPath(path, waveStrokePaint)
             }
-            canvas.restore()
         }
     }
 
